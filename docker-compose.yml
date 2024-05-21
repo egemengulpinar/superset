@@ -1,4 +1,3 @@
-#
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -45,7 +44,7 @@ services:
     container_name: superset_nginx
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "6000:80" # Changed port here
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -55,7 +54,7 @@ services:
     container_name: superset_cache
     restart: unless-stopped
     ports:
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:6380:6379" # Changed port here
     volumes:
       - redis:/data
 
@@ -69,7 +68,7 @@ services:
     container_name: superset_db
     restart: unless-stopped
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5433:5432" # Changed port here
     volumes:
       - db_home:/var/lib/postgresql/data
       - ./docker/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
@@ -86,7 +85,7 @@ services:
     command: ["/app/docker/docker-bootstrap.sh", "app"]
     restart: unless-stopped
     ports:
-      - 8088:8088
+      - "8090:8088" # Changed port here
     extra_hosts:
       - "host.docker.internal:host-gateway"
     user: *superset-user
@@ -99,28 +98,15 @@ services:
     container_name: superset_websocket
     build: ./superset-websocket
     ports:
-      - 8080:8080
+      - "8091:8080" # Changed port here
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       - redis
-    # Mount everything in superset-websocket into container and
-    # then exclude node_modules and dist with bogus volume mount.
-    # This is necessary because host and container need to have
-    # their own, separate versions of these files. .dockerignore
-    # does not seem to work when starting the service through
-    # docker compose.
-    #
-    # For example, node_modules may contain libs with native bindings.
-    # Those bindings need to be compiled for each OS and the container
-    # OS is not necessarily the same as host OS.
     volumes:
       - ./superset-websocket:/home/superset-websocket
       - /home/superset-websocket/node_modules
       - /home/superset-websocket/dist
-
-      # Mounting a config file that contains a dummy secret required to boot up.
-      # do not use this docker-compose in production
       - ./docker/superset-websocket/config.json:/home/superset-websocket/config.json
     environment:
       - PORT=8080
@@ -149,8 +135,6 @@ services:
   superset-node:
     image: node:18
     environment:
-      # set this to false if you have perf issues running the npm i; npm run dev in-docker
-      # if you do so, you have to run this manually on the host, which should perform better!
       SCARF_ANALYTICS: "${SCARF_ANALYTICS:-}"
     container_name: superset_node
     command: ["/app/docker/docker-frontend.sh"]
@@ -180,9 +164,6 @@ services:
       - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD-SHELL", "celery -A superset.tasks.celery_app:app inspect ping -d celery@$$HOSTNAME"]
-    # Bump memory limit if processing selenium / thumbnails on superset-worker
-    # mem_limit: 2038m
-    # mem_reservation: 128M
 
   superset-worker-beat:
     build:
